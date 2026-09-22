@@ -1,0 +1,86 @@
+<idea-plugin>
+    <id>com.smallzhuge.worktree-sync</id>
+    <name>Worktree Sync</name>
+    <vendor>liyaheng</vendor>
+
+    <description><![CDATA[
+    <p><b>面向 AI Agent 并行 vibe coding 的 worktree 配置同步：打开新 worktree 时弹窗选一次来源，
+    自动继承 IDEA 与 Maven 设置，并同步 Agent 的配置与会话记录。</b></p>
+
+    <p>「一个仓库开多个 git worktree、每个 worktree 跑一个 agent」是常见的并行开发姿势，
+    但每开一个新 worktree 都要重踩两遍同样的坑：</p>
+    <ul>
+      <li><b>IDEA 项目设置不会跟过来</b> &mdash; worktree 的 <code>.idea</code> 由 IDE 重新生成，
+      主仓库里调好的编译进程堆、Maven home、<code>settings.xml</code>、本地仓库都不会复制过去。
+      少设一次构建堆就可能编译 OOM，少设一次 Maven 就找不到私有仓库。</li>
+      <li><b>Agent 会话对不上</b> &mdash; 会话按工作目录绝对路径分目录存放，换 worktree 路径就是全新 project，
+      历史对话看不到，agent 失去上下文。</li>
+    </ul>
+    <p>本插件把它变成打开项目时的一次选择。</p>
+
+    <p><b>同步内容</b>（IDEA 与 Maven 两组走官方 API 写入、<b>即时生效</b>，
+    无需重启，也不会在 IDE 退出时被内存里的旧值覆盖）：</p>
+    <ul>
+      <li>编译进程堆大小、构建 VM options、全局编码</li>
+      <li>Maven home、user <code>settings.xml</code>、本地仓库、离线模式、线程数、远程仓库列表</li>
+      <li>Agent 项目配置：<code>.claude/settings.json</code>、<code>.mcp.json</code>、<code>CLAUDE.md</code>（当前支持 Claude Code）</li>
+      <li>Agent 会话记录：按 cwd slug 迁移，并把会话内的 cwd 改写成新路径</li>
+    </ul>
+
+    <p><b>怎么用</b>：打开 worktree 时弹窗选来源（继承某个 worktree / 使用 IDEA 默认）与同步项；
+    勾上「记住本次选择」后，同一项目之后静默应用。来源通过解析 <code>.git</code> 里的 gitdir 自动探测，
+    零外部 git 命令依赖。非 worktree 的普通项目不会被弹窗打扰；
+    需要时也可以从 <code>Tools &rarr; Sync Worktree Settings...</code> 手动触发。</p>
+
+    <p><b>English</b></p>
+    <p><b>Sync IDEA and Maven project settings, plus Claude Code sessions, across Git worktrees.</b></p>
+
+    <p>A new worktree gets a regenerated <code>.idea</code> directory, so the compiler heap, Maven home,
+    <code>settings.xml</code> and local repository from your main checkout are lost &mdash; miss the heap once and
+    the build fails with <code>GC overhead limit exceeded</code>. Agent sessions are keyed by the working
+    directory's absolute path, so a new path also means an empty history.</p>
+
+    <p>This plugin turns both into one choice at project open. IDEA and Maven settings are written through official
+    APIs and apply immediately, with no restart; Claude Code project config and session transcripts are copied over
+    with the stored <code>cwd</code> rewritten. Sibling worktrees are found from the gitdir pointer inside
+    <code>.git</code>, and plain non-worktree projects are never prompted.</p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+    <p><b>1.0.0 首次发布</b></p>
+    <ul>
+      <li>打开 worktree 时弹窗选一次来源，自动继承 IDEA 构建设置（编译进程堆、构建 VM options、全局编码）
+      与 Maven 设置（Maven home、settings.xml、本地仓库、离线模式、线程数、远程仓库列表），
+      全部走官方 API、<b>即时生效</b>，并对关键项读回校验。</li>
+      <li>同步 Agent 项目级配置（<code>.claude/settings.json</code>、<code>.mcp.json</code>、<code>CLAUDE.md</code>）
+      与 Claude Code 会话记录，并改写会话内的 <code>cwd</code>；目标已存在的文件默认不覆盖。</li>
+      <li>解析 <code>.git</code> 里的 gitdir 自动发现同仓库 worktree（主仓库与 worktree 两种形态都支持），
+      零外部 git 命令依赖。</li>
+      <li>每个项目只询问一次并记住选择；非 worktree 的普通项目不会被弹窗打扰。</li>
+    </ul>
+    <p><b>English:</b> First release. Syncs IDEA build settings and Maven settings through official APIs
+    (immediate effect, verified by reading back), syncs Claude Code project config and session transcripts with
+    <code>cwd</code> rewritten, discovers sibling worktrees from the gitdir pointer, asks once per project.</p>
+    ]]></change-notes>
+
+    <idea-version since-build="262"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <!-- Maven 设置同步依赖 Maven 插件的 API；IDEA（IC/IU）均内置该插件 -->
+    <depends>org.jetbrains.idea.maven</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.smallzhuge.worktreesync.WorktreeSyncActivity"/>
+        <notificationGroup id="Worktree Sync" displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <action id="com.smallzhuge.worktreesync.SyncAction"
+                class="com.smallzhuge.worktreesync.WorktreeSyncAction"
+                text="Sync Worktree Settings..."
+                description="按选择同步 IDEA 项目设置与 Claude Code 配置/会话">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

@@ -1,0 +1,80 @@
+plugins {
+    id("java")
+    id("org.jetbrains.intellij.platform") version "2.19.0"
+}
+
+group = "com.smallzhuge"
+version = "1.0.0"
+
+repositories {
+    mavenCentral()
+    intellijPlatform {
+        defaultRepositories()
+    }
+}
+
+// 平台依赖：优先指向**本机已装的 IDEA**（零下载、版本完全对齐）。
+// 路径请放在【用户级】gradle.properties（~/.gradle/gradle.properties，不进仓库）：
+//     localIdePath=C:/Program Files/JetBrains/IntelliJ IDEA
+// 也可以用环境变量 IDEA_HOME。
+// 两者都没有时，回落到从 JetBrains 仓库下载 IDEA Community（首次约 1GB）。
+val localIdePath: String? =
+    providers.gradleProperty("localIdePath").orNull
+        ?: providers.environmentVariable("IDEA_HOME").orNull
+
+dependencies {
+    intellijPlatform {
+        if (localIdePath != null) {
+            local(localIdePath)
+        } else {
+            intellijIdeaCommunity("2026.2.1")
+        }
+        bundledPlugin("com.intellij.java")
+        // Maven 设置同步需要 org.jetbrains.idea.maven.* 的 API
+        bundledPlugin("org.jetbrains.idea.maven")
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set(21)
+}
+
+intellijPlatform {
+    instrumentCode = false
+    buildSearchableOptions = false
+}
+
+// 签名与发布：凭证一律走环境变量，绝不写进仓库。
+// 证书文件（chain.crt / private.pem / PASSWORD.txt）放在**仓库之外**的私有目录，见 docs/PUBLISHING.md
+//
+// PowerShell 里跑（PEM 是多行的，先转成单行 Base64 再注入环境变量）：
+//   $env:CERTIFICATE_CHAIN    = [Convert]::ToBase64String([IO.File]::ReadAllBytes("<凭证目录>\chain.crt"))
+//   $env:PRIVATE_KEY          = [Convert]::ToBase64String([IO.File]::ReadAllBytes("<凭证目录>\private.pem"))
+//   $env:PRIVATE_KEY_PASSWORD = (Get-Content "<凭证目录>\PASSWORD.txt" -Raw).Trim()
+//   $env:PUBLISH_TOKEN        = "perm:xxxx"
+//
+// 注意：Kotlin DSL 里 signPlugin / publishPlugin 的顶层访问器是
+// `TaskContainer.signPlugin: TaskProvider<SignPluginTask>`，直接写 `signPlugin { }`
+// 会因 receiver 类型不匹配而编译失败 —— 必须走 tasks. 前缀配置。
+tasks.signPlugin {
+    certificateChain.set(providers.environmentVariable("CERTIFICATE_CHAIN"))
+    privateKey.set(providers.environmentVariable("PRIVATE_KEY"))
+    password.set(providers.environmentVariable("PRIVATE_KEY_PASSWORD"))
+}
+
+tasks.publishPlugin {
+    token.set(providers.environmentVariable("PUBLISH_TOKEN"))
+}
+
+// Gradle 9 会校验任务间隐式依赖：verifyPluginSignature 读的是 signPlugin 的产物，
+// 同一次调用里把两者一起跑会报 "Property has implicit dependency"。
+// 声明顺序依赖即可（不能用 dependsOn，会形成环）。
+tasks.verifyPluginSignature {
+    mustRunAfter(tasks.signPlugin)
+}

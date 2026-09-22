@@ -1,0 +1,23 @@
+.gradle/
+build/
+out/
+*.iml
+.idea/
+!build.gradle.kts
+
+# IntelliJ Platform Gradle Plugin 的本地平台解析缓存与 sandbox：
+# 每个 IDE build 一份、单个项目能有几百个文件，且与本机 IDE 路径强绑定，不该进仓库
+.intellijPlatform/
+
+# 凭证与证书：绝不能进仓库
+*.pem
+*.crt
+*.p12
+*.jks
+*.keystore
+PASSWORD.txt
+gradle.properties.local
+github-pat.txt
+
+# 发布脚本写的上次推送 sha
+.last_push_sha
