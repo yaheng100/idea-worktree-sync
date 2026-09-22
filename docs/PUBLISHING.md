@@ -239,9 +239,54 @@ curl -i --header "Authorization: Bearer perm:你的token" \
 
 ## 8. 坑（都踩过）
 
-- **描述前 40 字符必须是英文**，否则 Marketplace 卡片上的摘要会很难看。已满足。
-- **不要提交 `*.pem` / `*.crt` / token**。`.gitignore` 已加，但如果你把工程推到公开仓库，**先 `git status` 确认一遍**。
-- **证书有效期**：本次自签了 10 年（到 2036-09-19）。到期后签名校验会失败，需要重新生成并去账号里换证书。
-- **换了证书 = 换了身份**，Marketplace 侧的旧公钥要一并更新，别以为只是本地文件替换。
+### ⚠️ 上传前必跑这两个本地校验任务
+
+Marketplace 的 plugin.xml 校验**本地就能完整复现**，不要靠上传试错（每次都要等审核）：
+
+```powershell
+.\gradlew.bat verifyPluginProjectConfiguration verifyPluginStructure
+```
+
+- `verifyPluginProjectConfiguration` —— 项目配置（Java 版本、依赖、扩展点声明等）
+- `verifyPluginStructure` —— plugin.xml 描述符完整性与插件包结构
+
+**两者通过 = Marketplace 的 plugin.xml 校验基本能过。**
+
+### description 必须以【拉丁字符】开头（硬校验，不是建议）
+
+中文打头会直接被拒：
+
+```
+Invalid plugin descriptor 'description'.
+The plugin description must start with Latin characters and have at least 40 characters.
+```
+
+对策：**第一行写英文摘要**，中文主体紧随其后。注意 `<![CDATA[` 后面**不要留换行或空格**，
+直接接 `<p>`，避免解析出的纯文本以空白字符开头。
+
+```xml
+<description><![CDATA[<p><b>Sync IDEA and Maven project settings, ...</b></p>
+
+<p>面向 AI Agent 并行 vibe coding 的 worktree 配置同步：...</p>
+```
+
+### sourceCompatibility 必须等于平台要求的 Java 版本
+
+`verifyPluginProjectConfiguration` 会直接告警：
+
+```
+Java sourceCompatibility is set to '21', but IntelliJ Platform '2026.2.1' requires Java '25'.
+```
+
+2026.2.1 要 **25**（对应 IDEA 自带 JBR 25）。build.gradle.kts 里同步改
+`sourceCompatibility` / `targetCompatibility` / `options.release`。
+用 `JavaVersion.toVersion("25")` 比 `JavaVersion.VERSION_25` 稳，不受 Gradle 枚举版本差异影响。
+
+### 其他
+
+- **不要提交 `*.pem` / `*.crt` / token**。`.gitignore` 已加，但推到公开仓库前**先 `git status` 确认一遍**。
+- **证书有效期**：本次自签 10 年（到 2036-09-19）。到期后签名校验会失败，需要重新生成并去账号里换证书。
+- **换了证书 = 换了身份**，Marketplace 侧的旧公钥要一并更新，别以为只是本地替换文件。
 - **name 不能带 "Plugin"、不能含 JetBrains 产品名**。`Worktree Sync` 合规。
 - **截图别用默认主题**（Marketplace 明确不建议），并且不要出现桌面背景、浏览器窗口、个人信息。
+- **描述里若含本机路径**（`settings.xml`、本地仓库、内网域名），**要么脱敏、要么用 demo 项目截图** —— 见 [`SCREENSHOTS.md`](SCREENSHOTS.md)。

@@ -35,14 +35,17 @@ dependencies {
     }
 }
 
+// 目标平台 2026.2.1 要求 Java 25（verifyPluginProjectConfiguration 会检查；
+// 低于该版本的 sourceCompatibility 会被告知「可能导致 API 使用不正确」）。
+// 用 toVersion(String) 而不是 JavaVersion.VERSION_25，避免 Gradle 版本枚举差异。
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.toVersion("25")
+    targetCompatibility = JavaVersion.toVersion("25")
 }
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
-    options.release.set(21)
+    options.release.set(25)
 }
 
 intellijPlatform {

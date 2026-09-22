@@ -3,9 +3,13 @@
     <name>Worktree Sync</name>
     <vendor>liyaheng</vendor>
 
-    <description><![CDATA[
-    <p><b>面向 AI Agent 并行 vibe coding 的 worktree 配置同步：打开新 worktree 时弹窗选一次来源，
-    自动继承 IDEA 与 Maven 设置，并同步 Agent 的配置与会话记录。</b></p>
+    <!-- ⚠️ description 必须以【拉丁字符】开头且不少于 40 字符，否则 Marketplace 与
+         verifyPluginStructure 都会报 "Invalid plugin descriptor 'description'"。
+         所以第一行必须是英文，中文主体紧随其后。 -->
+    <description><![CDATA[<p><b>Sync IDEA and Maven project settings, plus Claude Code sessions, across Git worktrees.</b></p>
+
+    <p>面向 AI Agent 并行 vibe coding 的 worktree 配置同步：打开新 worktree 时弹窗选一次来源，
+    自动继承 IDEA 与 Maven 设置，并同步 Agent 的配置与会话记录。</p>
 
     <p>「一个仓库开多个 git worktree、每个 worktree 跑一个 agent」是常见的并行开发姿势，
     但每开一个新 worktree 都要重踩两遍同样的坑：</p>
