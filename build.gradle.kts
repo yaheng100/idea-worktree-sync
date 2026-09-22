@@ -51,6 +51,20 @@ tasks.withType<JavaCompile>().configureEach {
 intellijPlatform {
     instrumentCode = false
     buildSearchableOptions = false
+
+    // 插件校验：Marketplace 用的就是同一套 Plugin Verifier。
+    // failureLevel 默认已包含 INTERNAL_API_USAGES —— 即 Marketplace 会因为
+    // "uses the Internal API" 拒收，本地跑 verifyPlugin 就能复现，不必靠上传试错。
+    // 目标 IDE 优先用本机安装的（免下载整个 IDE）。
+    pluginVerification {
+        ides {
+            if (localIdePath != null) {
+                local(file(localIdePath))
+            } else {
+                recommended()
+            }
+        }
+    }
 }
 
 // 签名与发布：凭证一律走环境变量，绝不写进仓库。

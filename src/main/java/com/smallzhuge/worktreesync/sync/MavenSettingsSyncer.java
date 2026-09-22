@@ -47,12 +47,16 @@ public final class MavenSettingsSyncer {
     private static final String COMPONENT_REPOS = "RemoteRepositoriesConfiguration";
     private static final String TAG_REPO = "remote-repository";
 
-    /** 设置项 → 中文短名，用于汇总展示。 */
+    /**
+     * 设置项 → 中文短名，用于汇总展示。
+     *
+     * <p>注意这里**没有** {@code mavenHomeTypeForPersistence}：它对应的枚举是
+     * {@code @ApiStatus.Internal}，不能使用（详见 {@link #applyOne} 里的说明）。
+     */
     private static final Map<String, String> LABELS = new LinkedHashMap<>();
 
     static {
         LABELS.put("customMavenHome", "Maven home");
-        LABELS.put("mavenHomeTypeForPersistence", "home 类型");
         LABELS.put("userSettingsFile", "settings.xml");
         LABELS.put("localRepository", "本地仓库");
         LABELS.put("workOffline", "离线模式");
@@ -130,23 +134,45 @@ public final class MavenSettingsSyncer {
         }
     }
 
-    /** 返回 true 表示值确实发生了变化（用于汇总计数）。 */
+    /**
+     * 应用单个设置项，返回 true 表示值确实变了。
+     *
+     * <p><b>为什么用已废弃的 {@code getMavenHome}/{@code setMavenHome(String)}：</b>
+     * Maven home 只有三种可选 API ——
+     * <ul>
+     *   <li>{@code getCustomMavenHome}/{@code setCustomMavenHome} → 标了
+     *       {@code @ApiStatus.Internal}，会被 Marketplace 的 Plugin Verifier 拒收；</li>
+     *   <li>{@code getMavenHomeType}/{@code setMavenHomeType(MavenHomeType)} → 公开未废弃，
+     *       但 {@code MavenHomeType} 实例唯一的「路径→类型」工厂
+     *       {@code MavenHomeKt.resolveMavenHomeType} 自己也是 {@code @ApiStatus.Internal}，
+     *       等于换了个地方用 internal；</li>
+     *   <li>{@code getMavenHome}/{@code setMavenHome(String)} → <b>公开但已废弃</b>（forRemoval）。
+     *       它内部会调 {@code resolveMavenHomeType} 再落到 {@code setMavenHome(type, fire)}，
+     *       语义正确、一步到位。</li>
+     * </ul>
+     * 三者相比，「公开但废弃」优于「internal」，所以选它。
+     *
+     * <p><b>废弃的风险已被兜住：</b>调用点外层是 {@code catch (Throwable)}，
+     * 将来 IDE 真删掉这两个方法，最坏结果是「Maven home 这一项同步失败」并把原因报到通知里，
+     * 不会让整个插件崩掉。
+     */
+    @SuppressWarnings("removal")
     private static boolean applyOne(MavenGeneralSettings settings, String key, String value) {
         switch (key) {
             case "customMavenHome":
-                if (same(settings.getCustomMavenHome(), value)) {
+                // ⚠️ 必须用公开的 getMavenHome/setMavenHome，不能用
+                // getCustomMavenHome/setCustomMavenHome —— 后者标了 @ApiStatus.Internal，
+                // 会被 Marketplace 的 Plugin Verifier 判为「uses the Internal API」而拒收。
+                if (same(settings.getMavenHome(), value)) {
                     return false;
                 }
-                settings.setCustomMavenHome(value);
+                settings.setMavenHome(value);
                 return true;
-            case "mavenHomeTypeForPersistence":
-                MavenGeneralSettings.MavenHomeTypeForPersistence type =
-                        MavenGeneralSettings.MavenHomeTypeForPersistence.valueOf(value.trim());
-                if (type == settings.getMavenHomeTypeForPersistence()) {
-                    return false;
-                }
-                settings.setMavenHomeTypeForPersistence(type);
-                return true;
+            // mavenHomeTypeForPersistence 这一项【刻意不处理】：
+            // 它对应的枚举 MavenHomeTypeForPersistence 整个类都是 @ApiStatus.Internal。
+            // 而 setMavenHome(String) 内部会先调 MavenHomeKt.resolveMavenHomeType，
+            // 再落到 setMavenHome(type, fire) —— 类型由 IDEA 自己解析，
+            // 我们既不需要、也不应该插手。
             case "userSettingsFile":
                 if (same(settings.getUserSettingsFile(), value)) {
                     return false;
@@ -154,9 +180,8 @@ public final class MavenSettingsSyncer {
                 settings.setUserSettingsFile(value);
                 return true;
             case "localRepository":
-                if (same(settings.getLocalRepository(), value)) {
-                    return false;
-                }
+                // setLocalRepository 是公开的，但 getLocalRepository 标了 @ApiStatus.Internal，
+                // 因此无法做「值没变就不写」的判断 —— 直接写入。
                 settings.setLocalRepository(value);
                 return true;
             case "threads":
@@ -216,9 +241,7 @@ public final class MavenSettingsSyncer {
                 settings.setShowDialogWithAdvancedSettings(dialog);
                 return true;
             case "toolchainsPath":
-                if (same(settings.getToolchainsPathString(), value)) {
-                    return false;
-                }
+                // 同上：setToolchainsPathString 公开，getToolchainsPathString internal
                 settings.setToolchainsPathString(value);
                 return true;
             default:
@@ -227,17 +250,40 @@ public final class MavenSettingsSyncer {
         }
     }
 
-    /** 读回关键项，确认 setter 生效（防止改到了一份不会被持久化的副本上）。 */
+    /**
+     * 读回关键项，确认 setter 生效（防止改到了一份不会被持久化的副本上）。
+     *
+     * <p><b>只能读公开 getter。</b>{@code getLocalRepository()} / {@code getToolchainsPathString()}
+     * 标了 {@code @ApiStatus.Internal}，会被 Marketplace 的 Plugin Verifier 拒收，所以那两项
+     * 「只写不读」。少这两个读回校验不影响功能 —— 它们本来就由 user settings.xml 兜底
+     * （settings.xml 里通常已声明 {@code <localRepository>}）。
+     */
+    @SuppressWarnings("removal")   // 同上：Maven home 只有「公开但废弃」这一条可走
     private static List<String> verify(MavenGeneralSettings settings, Map<String, String> source) {
         List<String> mismatched = new ArrayList<>();
-        check(mismatched, "customMavenHome", source.get("customMavenHome"), settings.getCustomMavenHome());
+
+        // Maven home 走路径比较：忽略盘符大小写与分隔符风格，避免误报
+        String expectedHome = source.get("customMavenHome");
+        if (expectedHome != null && !expectedHome.isEmpty()
+                && !samePath(expectedHome, settings.getMavenHome())) {
+            mismatched.add(LABELS.getOrDefault("customMavenHome", "customMavenHome"));
+        }
+
         check(mismatched, "userSettingsFile", source.get("userSettingsFile"), settings.getUserSettingsFile());
-        check(mismatched, "localRepository", source.get("localRepository"), settings.getLocalRepository());
+
         String threads = source.get("threads");
         if (threads != null) {
             check(mismatched, "threads", threads.trim(), trim(settings.getThreads()));
         }
         return mismatched;
+    }
+
+    /** Windows 路径比较：`E:\maven` 与 `e:/maven` 视为相同。 */
+    private static boolean samePath(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.replace('\\', '/').equalsIgnoreCase(b.replace('\\', '/'));
     }
 
     private static void check(List<String> mismatched, String key, String expected, String actual) {

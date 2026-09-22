@@ -239,18 +239,39 @@ curl -i --header "Authorization: Bearer perm:你的token" \
 
 ## 8. 坑（都踩过）
 
-### ⚠️ 上传前必跑这两个本地校验任务
+### 上传前必跑这三个本地校验任务
 
 Marketplace 的 plugin.xml 校验**本地就能完整复现**，不要靠上传试错（每次都要等审核）：
 
 ```powershell
 .\gradlew.bat verifyPluginProjectConfiguration verifyPluginStructure
+.\gradlew.bat verifyPlugin        # 约 10 分钟，首次还要下 ~900MB 依赖
 ```
 
 - `verifyPluginProjectConfiguration` —— 项目配置（Java 版本、依赖、扩展点声明等）
 - `verifyPluginStructure` —— plugin.xml 描述符完整性与插件包结构
+- `verifyPlugin` —— **Plugin Verifier，与 Marketplace 审核用的是同一套**。
+  `failureLevel` 默认包含 `INTERNAL_API_USAGES`，所以能提前发现
+  「uses the Internal API」这类拒收
 
-**两者通过 = Marketplace 的 plugin.xml 校验基本能过。**
+### ⚠️ 不要用 @ApiStatus.Internal 标记的任何成员
+
+Marketplace 会以 "Your plugin uses the Internal API" 拒收，邮件**不列位置**。
+`verifyPlugin` 报告里才会给出逐条明细。
+
+本次实际被标记的 10 处，全部集中在 `MavenGeneralSettings`：
+
+| 原用（❌ internal） | 公开替代（✅） |
+|:--|:--|
+| `getCustomMavenHome` / `setCustomMavenHome` | **`getMavenHome` / `setMavenHome`** |
+| `MavenHomeTypeForPersistence` 枚举及其 getter/setter | 无需处理 —— `setMavenHome(String)` 内部会调 `MavenHomeKt.resolveMavenHomeType` 自行解析类型 |
+| `getLocalRepository()` | 无公开 getter，但 **`setLocalRepository` 是公开的** → 该项「只写不读」 |
+| `getToolchainsPathString()` | 同上，`setToolchainsPathString` 公开 → 「只写不读」 |
+
+> **读写可能不对称**：同一字段的 getter 可能 internal 而 setter 公开。
+> 这种情况把「读回校验」降级为「只写」，并在代码注释里写清原因。
+>
+> 另外 `MavenProjectsManager.getGeneralSettings()` 是**公开**的，可以放心用。
 
 ### description 必须以【拉丁字符】开头（硬校验，不是建议）
 
