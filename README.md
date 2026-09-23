@@ -49,7 +49,7 @@
 build.bat buildPlugin
 ```
 
-产物 `build/distributions/worktree-sync-1.0.0.zip` → `Settings → Plugins → ⚙ → Install Plugin from Disk...`
+产物 `build/distributions/worktree-sync-1.0.1.zip` → `Settings → Plugins → ⚙ → Install Plugin from Disk...`
 
 **前置要求**：JDK 21+。Gradle 无需预装 —— wrapper 已锁定 9.7.1，首次运行自动下载
 （IntelliJ Platform Gradle Plugin 2.x 要求 Gradle ≥ 9.0.0）。

@@ -4,7 +4,10 @@ plugins {
 }
 
 group = "com.smallzhuge"
-version = "1.0.0"
+// ⚠️ Marketplace 上一个版本号一旦上传过就永久占用，重复上传会被拒：
+//    "The com.smallzhuge.worktree-sync plugin already contains version X in channel …"
+//    改版本号时记得同步更新 plugin.xml 的 <change-notes> 与 README/docs 里的 zip 文件名。
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -58,9 +61,13 @@ intellijPlatform {
     // 目标 IDE 优先用本机安装的（免下载整个 IDE）。
     pluginVerification {
         ides {
+            // 默认只用本机 IDE：免下载、几十秒出结果，够日常把关
             if (localIdePath != null) {
                 local(file(localIdePath))
-            } else {
+            }
+            // 需要覆盖 Marketplace 用的完整 IDE 矩阵时加 -PverifyRecommendedIdes
+            // （会从仓库下载 IC/IU 等发行版，约 1GB 起，慢）
+            if (providers.gradleProperty("verifyRecommendedIdes").isPresent) {
                 recommended()
             }
         }

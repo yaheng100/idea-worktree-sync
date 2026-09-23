@@ -3,6 +3,10 @@
 > 只是想自己用 / 团队内用：**不用走这里**。直接 `build.bat buildPlugin` 产出 zip，
 > `Settings → Plugins → ⚙ → Install Plugin from Disk...` 装上就行。下面只针对「公开上架」。
 
+> 📌 本文里的 `1.0.1` 是**当前版本号**，换版本时全文替换即可。
+> ⚠️ Marketplace 上**同一个版本号一旦上传过就永久占用**，重复上传会报
+> `The <id> plugin already contains version X in channel` —— 所以每次改动都要升版本号。
+>
 > 本文档最初是给作者本人的操作清单，「我做 / 你做 / 上传时填」是当时的标注方式；**步骤本身对任何发布者通用**。
 > 文中的 `<凭证目录>` 指**仓库之外**的私有目录，用于存放证书、私钥、口令与 token —— 它们绝不进 git。
 
@@ -14,7 +18,7 @@
 
 | 项 | 状态 |
 |:--|:--|
-| 插件 id / 名称 / 版本 | ✅ 我做（`com.smallzhuge.worktree-sync` / `Worktree Sync` / `1.0.0`） |
+| 插件 id / 名称 / 版本 | ✅ 我做（`com.smallzhuge.worktree-sync` / `Worktree Sync` / `1.0.1`） |
 | 描述（中文优先 + 精简英文段） | ✅ 我做 —— ⚠️ 刻意偏离官方的「前 40 字符英文」建议，见下方说明 |
 | 变更日志 `change-notes` | ✅ 我做（中文优先 + 一句英文） |
 | 插件图标 40×40 SVG（明/暗两版） | ✅ 我做 |
@@ -105,7 +109,7 @@ Marketplace 文档的原文要求是：描述**前 40 字符必须是英文摘�
 | 字段 | 建议值 | 说明 |
 |:--|:--|:--|
 | Name | `Worktree Sync` | 来自 plugin.xml，不用填。已查重：**无同名插件** |
-| Version | `1.0.0` | 来自 plugin.xml |
+| Version | `1.0.1` | 来自 plugin.xml |
 | **Tags** | `Git`、`Build Tools`、`Project Management`、`AI Assistant`（按实际可选项勾） | **至少勾 1 个**，影响搜索命中 |
 | **Category** | `Tools` 或 `Build Tools` | 单选 |
 | **License** | 见下 | 上传表单里填，之后可在 General Information 改 |
@@ -140,7 +144,7 @@ Marketplace 文档的原文要求是：描述**前 40 字符必须是英文摘�
    需要 Vendor 名称、联系邮箱。**没建档案时上传会被拦去先建档**
 3. **同意 Marketplace Developer Agreement**（首次上传时弹）
 4. 打开 `https://plugins.jetbrains.com/plugin/add` → 上传
-   `build\distributions\worktree-sync-1.0.0.zip`
+   `build\distributions\worktree-sync-1.0.1.zip`
    > 上传前先跑带签名的构建（见第 5 节），否则会带「未签名」警告
 5. 填 Tags / Category / License（License 选 MIT）
 6. 提交 → 等人工审核（通常 1–3 个工作日）
@@ -169,7 +173,7 @@ $env:PRIVATE_KEY_PASSWORD = (Get-Content "$D\PASSWORD.txt" -Raw).Trim()
 .\gradlew.bat --console=plain signPlugin buildPlugin
 ```
 
-产物：`build\distributions\worktree-sync-1.0.0.zip`（签名后）
+产物：`build\distributions\worktree-sync-1.0.1.zip`（签名后）
 
 验证签名。**`verifyPluginSignature` 任务有个坑**：当证书链是通过环境变量（Base64）传入时，
 该任务会把 **Base64 字符串原样写进临时 `.pem`**（不像 `signPlugin` 会自动解码），
@@ -178,14 +182,14 @@ $env:PRIVATE_KEY_PASSWORD = (Get-Content "$D\PASSWORD.txt" -Raw).Trim()
 ```powershell
 $SIGNER = "<gradle 用户目录>\caches\modules-2\files-2.1\org.jetbrains\marketplace-zip-signer\*\*\marketplace-zip-signer-*-cli.jar"
 java -cp $SIGNER org.jetbrains.zip.signer.ZipSigningTool verify `
-  -in build\distributions\worktree-sync-1.0.0-signed.zip `
+  -in build\distributions\worktree-sync-1.0.1-signed.zip `
   -cert "<凭证目录>\chain.crt"
 ```
 
 验签**通过时无输出**；包未签名时会打印 `Provided zip archive is not signed` —— 可用它做反证，确认验证器确实在工作。
 
-> 另外 `signPlugin` 的产物是 `worktree-sync-1.0.0-signed.zip`（带 `-signed` 后缀），
-> 而 `buildPlugin` 的产物是 `worktree-sync-1.0.0.zip`。**要上架/发 Release 的是带 `-signed` 的那个。**
+> 另外 `signPlugin` 的产物是 `worktree-sync-1.0.1-signed.zip`（带 `-signed` 后缀），
+> 而 `buildPlugin` 的产物是 `worktree-sync-1.0.1.zip`。**要上架/发 Release 的是带 `-signed` 的那个。**
 
 > 只跑 `buildPlugin`、不设环境变量时会**自动跳过签名**，本地自用不受影响。
 
@@ -208,7 +212,7 @@ $env:PUBLISH_TOKEN = "perm:你的token"
 ```bash
 curl -i --header "Authorization: Bearer perm:你的token" \
   -F xmlId=com.smallzhuge.worktree-sync \
-  -F file=@build/distributions/worktree-sync-1.0.0.zip \
+  -F file=@build/distributions/worktree-sync-1.0.1.zip \
   https://plugins.jetbrains.com/api/updates/upload
 ```
 

@@ -51,6 +51,19 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <p><b>1.0.1</b></p>
+    <ul>
+      <li>修复 Marketplace 校验未通过的问题：去掉全部 <code>@ApiStatus.Internal</code> 用法。
+      Maven home 改用公开的 <code>setMavenHome</code>；本地仓库与 toolchains 路径改为「只写不读」
+      （它们的 getter 是 internal）；不再显式设置 Maven home 类型 —— 交由 IDEA 自行解析。</li>
+      <li>插件目标 Java 版本由 21 升到 25，与 IntelliJ Platform 2026.2 的要求一致。</li>
+      <li>在<b>主仓库</b>（<code>.git</code> 是目录）里打开配置弹窗时，候选 worktree 列表不再为空。</li>
+      <li>修复弹窗里「当前项目编译堆」提示行被分组边框裁切的问题。</li>
+    </ul>
+    <p><b>English:</b> Removed all <code>@ApiStatus.Internal</code> usages that made the Marketplace
+    verifier reject the plugin; raised the target Java level to 25; fixed an empty worktree list when the
+    dialog is opened from the main repository; fixed a clipped hint row in the dialog.</p>
+
     <p><b>1.0.0 首次发布</b></p>
     <ul>
       <li>打开 worktree 时弹窗选一次来源，自动继承 IDEA 构建设置（编译进程堆、构建 VM options、全局编码）
