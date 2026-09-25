@@ -245,6 +245,19 @@ public class DetectorSmokeTest {
 
         check("resolveGitDir 在主仓库上应指向 <项目>/.git",
                 ".git".equals(String.valueOf(WorktreeDetector.resolveGitDir(mainRepo).getFileName())));
+
+        // 自动弹窗的门槛依赖「worktree 创建时间」，这里确认它读得到且合理
+        long wtCreated = WorktreeDetector.createdAt(worktree);
+        long mainCreated = WorktreeDetector.createdAt(mainRepo);
+        long now = System.currentTimeMillis();
+        System.out.println("      worktree 创建时间 = " + wtCreated
+                + " / 主仓库 = " + mainCreated + " / 现在 = " + now);
+        check("worktree 创建时间应可读取（> 0）", wtCreated > 0L);
+        check("主仓库创建时间应可读取（> 0）", mainCreated > 0L);
+        check("创建时间不应晚于当前时间",
+                wtCreated <= now && mainCreated <= now);
+        check("已有 worktree 的创建时间应早于现在（= 不会触发自动弹窗）",
+                wtCreated < now);
     }
 
     private static void testCandidates() {

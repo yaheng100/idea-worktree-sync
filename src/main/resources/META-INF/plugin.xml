@@ -31,10 +31,12 @@
       <li>Agent 会话记录：按 cwd slug 迁移，并把会话内的 cwd 改写成新路径</li>
     </ul>
 
-    <p><b>怎么用</b>：打开 worktree 时弹窗选来源（继承某个 worktree / 使用 IDEA 默认）与同步项；
-    勾上「记住本次选择」后，同一项目之后静默应用。来源通过解析 <code>.git</code> 里的 gitdir 自动探测，
-    零外部 git 命令依赖。非 worktree 的普通项目不会被弹窗打扰；
-    需要时也可以从 <code>Tools &rarr; Sync Worktree Settings...</code> 手动触发。</p>
+    <p><b>怎么用</b>：<b>新建成</b>的 worktree 首次打开时弹窗，选来源（继承某个 worktree / 使用 IDEA 默认）
+    与同步项；勾上「记住本次选择」后同一项目之后静默应用。<b>已有 worktree 不会再被弹窗打扰</b>，
+    一个项目也只会被问一次。想重新弹窗、或对已有 worktree 执行同步，走
+    <code>Tools &rarr; Sync Worktree Settings...</code>；想忘掉已记住的选择，走
+    <code>Tools &rarr; Reset Worktree Sync Choice</code>。来源通过解析 <code>.git</code> 里的 gitdir 自动探测，
+    零外部 git 命令依赖。非 worktree 的普通项目不会被弹窗打扰。</p>
 
     <p><b>English</b></p>
     <p><b>Sync IDEA and Maven project settings, plus Claude Code sessions, across Git worktrees.</b></p>
@@ -44,13 +46,27 @@
     the build fails with <code>GC overhead limit exceeded</code>. Agent sessions are keyed by the working
     directory's absolute path, so a new path also means an empty history.</p>
 
-    <p>This plugin turns both into one choice at project open. IDEA and Maven settings are written through official
-    APIs and apply immediately, with no restart; Claude Code project config and session transcripts are copied over
-    with the stored <code>cwd</code> rewritten. Sibling worktrees are found from the gitdir pointer inside
-    <code>.git</code>, and plain non-worktree projects are never prompted.</p>
+    <p>The prompt appears only for worktrees created <b>after the plugin was installed</b>, and only once
+    each &mdash; existing worktrees, and any project already asked, are never prompted again. IDEA and Maven
+    settings are written through official APIs and apply immediately, with no restart; Claude Code project
+    config and session transcripts are copied over with the stored <code>cwd</code> rewritten. Sibling
+    worktrees are found from the gitdir pointer inside <code>.git</code>. Both a manual sync and a reset of the
+    stored choice are available from the Tools menu, and plain non-worktree projects are never prompted.</p>
     ]]></description>
 
     <change-notes><![CDATA[
+    <p><b>1.0.2</b></p>
+    <ul>
+      <li><b>自动弹窗只在新建 worktree 时出现。</b>此前只要某个 worktree 没有记住过的选择，
+      每次打开都会弹。现在只在「插件装好之后新建」的 worktree 上弹一次，且点取消也算问过 ——
+      已有 worktree 一律不再打扰。</li>
+      <li>新增 Tools 菜单项 <code>Reset Worktree Sync Choice</code>：清除本项目的同步选择与
+      「已询问」标记，让自动弹窗重新出现，或忘掉之前记住的选择。</li>
+    </ul>
+    <p><b>English:</b> The auto-dialog now appears only for worktrees created after the plugin was
+    installed, and only once each. Previously every worktree without a remembered choice prompted on
+    every open. A new Tools menu item resets the stored choice for the current project.</p>
+
     <p><b>1.0.1</b></p>
     <ul>
       <li>修复 Marketplace 校验未通过的问题：去掉全部 <code>@ApiStatus.Internal</code> 用法。
@@ -97,6 +113,12 @@
                 class="com.smallzhuge.worktreesync.WorktreeSyncAction"
                 text="Sync Worktree Settings..."
                 description="按选择同步 IDEA 项目设置与 Claude Code 配置/会话">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="com.smallzhuge.worktreesync.ResetAction"
+                class="com.smallzhuge.worktreesync.WorktreeSyncResetAction"
+                text="Reset Worktree Sync Choice"
+                description="清除本项目的同步选择与「已询问」标记，让下次打开时重新弹窗">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
     </actions>

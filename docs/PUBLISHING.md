@@ -307,6 +307,35 @@ Java sourceCompatibility is set to '21', but IntelliJ Platform '2026.2.1' requir
 `sourceCompatibility` / `targetCompatibility` / `options.release`。
 用 `JavaVersion.toVersion("25")` 比 `JavaVersion.VERSION_25` 稳，不受 Gradle 枚举版本差异影响。
 
+### 验证报告里出现 WebStorm / PhpStorm「Package not found」是**正常的**
+
+本插件声明了产品专属模块：
+
+```xml
+<depends>com.intellij.modules.platform</depends>   <!-- 所有产品 -->
+<depends>com.intellij.modules.java</depends>       <!-- 仅 IntelliJ IDEA / Android Studio -->
+<depends>org.jetbrains.idea.maven</depends>        <!-- 仅 IntelliJ IDEA -->
+```
+
+WebStorm 两者都没有，**插件在设计上就装不进去**。JetBrains 的验证器仍会拿它去跑一遍，
+于是报 3 个 `Package not found`（`com.intellij.compiler` / `com.intellij.jarRepository` /
+`org.jetbrains.idea.maven`）—— 这是「在一个不支持的产品里找不到依赖的类」的必然结果。
+
+官方文档 [[Plugin Compatibility with IntelliJ Platform Products](https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html)]
+明确写着：**Marketplace 会依据 `<depends>` 自动推断产品兼容性**，并据此决定插件对哪些产品的用户可见。
+所以只要 `<depends>` 声明正确，这类报告**不影响 IDEA 上的上架**。
+
+**不要为了消掉它去改 `<depends>`**：
+- 改成 `optional="true"` 需要配 `config-file` 并在没有 Maven 时降级，是实打实的重构，且**消不掉** ——
+  WebStorm 连 `com.intellij.modules.java` 都没有。
+- `<incompatible-with>` 语义是「不能与某模块共存」，与本场景不符。
+
+**该做的是**：回复 JetBrains 说明这是预期行为（邮件里就邀请了回复 false positive）。
+可直接用 `F:\WorkBuddy\临时文件\jetbrains_reply_webstorm.txt` 那份草稿。
+
+**本地验证**保持一致：只拿所支持的产品（本机 IDEA）验，别去跑 `-PverifyRecommendedIdes`
+（它会连 WebStorm 一起下载验证，只会制造同样的噪音）。
+
 ### 其他
 
 - **不要提交 `*.pem` / `*.crt` / token**。`.gitignore` 已加，但推到公开仓库前**先 `git status` 确认一遍**。

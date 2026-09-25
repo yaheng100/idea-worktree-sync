@@ -32,7 +32,17 @@ public final class WorktreeSyncRunner {
     }
 
     /**
-     * 项目打开后的自动流程。非 worktree 的普通项目直接返回，不做任何打扰。
+     * 项目打开后的自动流程。
+     *
+     * <p><b>什么情况下才弹窗</b>（三条都满足）：
+     * <ol>
+     *   <li>是 worktree（主仓库与普通项目不打扰）</li>
+     *   <li>没有记住过的选择</li>
+     *   <li>创建时间晚于插件基准时间 —— 也就是<b>装了插件之后才新建的 worktree</b>，
+     *       且此前没问过</li>
+     * </ol>
+     * 已有 worktree 一律不弹；新建的只弹一次（点取消也算问过，不再重复打扰）。
+     * 想重新弹或对已有 worktree 同步，走 <code>Tools</code> 菜单。
      */
     public static void runForOpenedProject(Project project) {
         Path base = basePathOf(project);
@@ -47,11 +57,27 @@ public final class WorktreeSyncRunner {
             return;
         }
 
-        List<WorktreeInfo> candidates = WorktreeDetector.candidates(base);
-        if (candidates.isEmpty()) {
-            LOG.info("Worktree Sync: " + base + " 是 worktree，但未探测到同仓库的其他 worktree，跳过弹窗");
+        if (DecisionStore.wasAsked(base)) {
+            LOG.info("Worktree Sync: " + base + " 已经询问过，跳过弹窗");
             return;
         }
+
+        long created = WorktreeDetector.createdAt(base);
+        long baseline = DecisionStore.baselineAt();
+        if (created <= 0L || created < baseline) {
+            LOG.info("Worktree Sync: " + base + " 视为已有 worktree（无法判定创建时间或早于基准 "
+                    + baseline + "），跳过弹窗");
+            return;
+        }
+
+        List<WorktreeInfo> candidates = WorktreeDetector.candidates(base);
+        if (candidates.isEmpty()) {
+            LOG.info("Worktree Sync: " + base + " 是新 worktree，但未探测到同仓库的其他 worktree，跳过弹窗");
+            return;
+        }
+
+        // 先标记再弹：即使用户点取消，下次也不再重复打扰
+        DecisionStore.markAsked(base);
 
         WorktreeSyncDialog dialog = new WorktreeSyncDialog(project, base, candidates);
         if (!dialog.showAndGet()) {
@@ -64,7 +90,7 @@ public final class WorktreeSyncRunner {
         apply(project, base, plan);
     }
 
-    /** 从 Tools 菜单手动触发；普通项目也能用（靠「浏览...」选来源）。 */
+    /** 从 Tools 菜单手动触发；普通项目也能用（靠「浏览...」选来源）。不受自动弹窗的任何门槛限制。 */
     public static void runManually(Project project) {
         Path base = basePathOf(project);
         if (base == null) {
@@ -73,7 +99,6 @@ public final class WorktreeSyncRunner {
         }
         List<WorktreeInfo> candidates = WorktreeDetector.candidates(base);
 
-        SyncPlan remembered = DecisionStore.recall(base);
         WorktreeSyncDialog dialog = new WorktreeSyncDialog(project, base, candidates);
         if (!dialog.showAndGet()) {
             return;

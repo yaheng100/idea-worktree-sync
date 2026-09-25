@@ -6,6 +6,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -226,6 +227,37 @@ public final class WorktreeDetector {
         String sa = a.toAbsolutePath().normalize().toString();
         String sb = b.toAbsolutePath().normalize().toString();
         return sa.equalsIgnoreCase(sb);
+    }
+
+    /**
+     * worktree 的创建时间（毫秒），取不到返回 0。
+     *
+     * <p>取的是 worktree 的 git 元数据目录 {@code <主仓库>/.git/worktrees/<名字>} 的创建时间 ——
+     * 它由 {@code git worktree add} 建立，比项目目录本身更贴近「这个 worktree 是什么时候建的」。
+     * 取不到时退化到项目目录的创建时间。
+     *
+     * <p>返回值 0 表示<b>无法判定</b>。调用方应按「未知视作已有」处理，避免误弹窗打扰用户。
+     */
+    public static long createdAt(Path projectDir) {
+        if (projectDir == null) {
+            return 0L;
+        }
+        long t = creationTimeOf(resolveGitDir(projectDir));
+        if (t <= 0L) {
+            t = creationTimeOf(projectDir);
+        }
+        return t;
+    }
+
+    private static long creationTimeOf(Path p) {
+        if (p == null) {
+            return 0L;
+        }
+        try {
+            return Files.readAttributes(p, BasicFileAttributes.class).creationTime().toMillis();
+        } catch (IOException e) {
+            return 0L;
+        }
     }
 
     private static String fileName(Path p) {

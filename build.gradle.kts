@@ -7,7 +7,7 @@ group = "com.smallzhuge"
 // ⚠️ Marketplace 上一个版本号一旦上传过就永久占用，重复上传会被拒：
 //    "The com.smallzhuge.worktree-sync plugin already contains version X in channel …"
 //    改版本号时记得同步更新 plugin.xml 的 <change-notes> 与 README/docs 里的 zip 文件名。
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     mavenCentral()
@@ -51,9 +51,23 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(25)
 }
 
+// 签名工具（Marketplace ZIP Signer）一般由插件自动从仓库解析。
+// 解析不到时（仓库不可达 / 依赖元数据过期）会报
+//   Cannot resolve 'Marketplace ZIP Signer' with: 'localPath[null],marketplaceZipSigner[]'
+// 此时把下面这个属性指到本地已缓存的 signer jar 即可完全绕开解析：
+//   用户级 gradle.properties 里加一行 zipSignerCliPath=<...>/marketplace-zip-signer-<v>-cli.jar
+val zipSignerCliPath: String? = providers.gradleProperty("zipSignerCliPath").orNull
+
 intellijPlatform {
     instrumentCode = false
     buildSearchableOptions = false
+
+    // 只设 cliPath；证书与私钥仍走下面的环境变量，不受影响
+    if (zipSignerCliPath != null) {
+        signing {
+            cliPath = file(zipSignerCliPath)
+        }
+    }
 
     // 插件校验：Marketplace 用的就是同一套 Plugin Verifier。
     // failureLevel 默认已包含 INTERNAL_API_USAGES —— 即 Marketplace 会因为
